@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
 import sys, datetime, time, os, threading
 import requests, json, random
 from livestreamer import Livestreamer
@@ -25,27 +27,31 @@ def getOnlineModels():
                 wanted.append(theModel.lower())
     f.close()
     url = "https://www.camsoda.com/api/v1/browse/online"
-    with r.get(url, headers=headers) as url:
-        data = url.json()
-        for line in data['results']:
-            if line['tpl'][0].lower() not in recording and (line['tpl'][1].lower() in wanted or line['tpl'][0].lower() in wanted):
+    url = r.get(url, headers=headers)
+    data = url.json()
+
+    for line in data['results']:
+        try:
+            if line['tpl'][1].lower() not in recording and (line['tpl'][2].lower() in wanted or line['tpl'][1].lower() in wanted):
                 if line['tpl'][3] >= 3:
                     thread = threading.Thread(target=startRecording, args=(line, num))
                     thread.start()
+        except: 
+            pass
 
 def startRecording(modelData, num):
     global quality
     try:
-        recording.append(modelData['tpl'][0].lower())
+        recording.append(modelData['tpl'][1].lower())
         videoapi = requests.get(
-                "https://www.camsoda.com/api/v1/video/vtoken/{model}?username=guest_{num}".format(model=modelData['tpl'][0], num=num), headers=headers)
+                "https://www.camsoda.com/api/v1/video/vtoken/{model}?username=guest_{num}".format(model=modelData['tpl'][1], num=num), headers=headers)
         data2 = json.loads(videoapi.text)
 
         if int(data2['status']) == 1:
             server = data2['edge_servers'][0]
-            link = "hlsvariant://https://{server}/{app}/mp4:{stream_name}_h264_aac_{quality}/playlist.m3u8?token={token}".format(quality=quality, server=server, app=data2['app'], stream_name=data2['stream_name'], token=data2['token'])
+            link = "hlsvariant://https://{server}/cam/mp4:{stream_name}_h264_aac_{quality}/playlist.m3u8?token={token}".format(quality=quality, server=server, stream_name=data2['stream_name'], token=data2['token'])
 
-        if not os.path.exists("{path}\\{model}".format(path=save_directory, model=modelData['tpl'][0])): os.makedirs("{path}\\{model}".format(path=save_directory, model=modelData['tpl'][0]))
+        if not os.path.exists("{path}/{model}".format(path=save_directory, model=modelData['tpl'][1])): os.makedirs("{path}/{model}".format(path=save_directory, model=modelData['tpl'][1]))
 
         session = Livestreamer()
         streams = session.streams(link)
@@ -53,22 +59,22 @@ def startRecording(modelData, num):
         fd = stream.open()
         ts = time.time()
         st = datetime.datetime.fromtimestamp(ts).strftime("%Y.%m.%d_%H.%M.%S")
-        with open("{path}\\{model}\\{st}_{model}.mp4".format(path=save_directory, model=modelData['tpl'][0], st=st), 'wb') as f:
+        with open("{path}/{model}/{st}_{model}.mp4".format(path=save_directory, model=modelData['tpl'][1], st=st), 'wb') as f:
             while True:
                 try:
                     data = fd.read(1024)
                     f.write(data)
                 except:
-                    recording.remove(modelData['tpl'][0].lower())
-                    print("{} stream has ended".format(modelData['tpl'][0]))
+                    recording.remove(modelData['tpl'][1].lower())
+                    print("{} stream has ended".format(modelData['tpl'][1]))
                     f.close()
                     return()
-        recording.remove(modelData['tpl'][0].lower())
-        print("{} stream has ended".format(modelData['tpl'][0]))
+        recording.remove(modelData['tpl'][1].lower())
+        print("{} stream has ended".format(modelData['tpl'][1]))
 
     except:
-        recording.remove(modelData['tpl'][0].lower())
-        print("{} stream has ended".format(modelData['tpl'][0]))
+        recording.remove(modelData['tpl'][1].lower())
+        print("{} stream has ended".format(modelData['tpl'][1]))
 
 if __name__ == '__main__':
     recording = []
